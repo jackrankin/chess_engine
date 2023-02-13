@@ -197,35 +197,35 @@ class Engine {
 
 
 
-int main() {
-    char board[8][8] =
-        {
-            {' ', ' ', ' ', ' ', 'k', ' ', ' ', ' '},
-            {' ', ' ', ' ', ' ', ' ', ' ', ' ', ' '},
-            {' ', ' ', ' ', ' ', ' ', ' ', ' ', ' '},
-            {' ', ' ', ' ', ' ', ' ', ' ', ' ', ' '},
-            {' ', ' ', ' ', ' ', ' ', ' ', ' ', ' '},
-            {' ', ' ', ' ', ' ', ' ', ' ', ' ', ' '},
-            {' ', ' ', ' ', ' ', ' ', ' ', ' ', ' '},
-            {' ', ' ', ' ', ' ', ' ', 'K', ' ', ' '},
-        };
+// int main() {
+//     char board[8][8] =
+//         {
+//             {' ', ' ', ' ', ' ', 'k', ' ', ' ', ' '},
+//             {' ', ' ', ' ', ' ', ' ', ' ', ' ', ' '},
+//             {' ', ' ', ' ', ' ', ' ', ' ', ' ', ' '},
+//             {' ', ' ', ' ', ' ', ' ', ' ', ' ', ' '},
+//             {' ', ' ', ' ', ' ', ' ', ' ', ' ', ' '},
+//             {' ', ' ', ' ', ' ', ' ', ' ', ' ', ' '},
+//             {' ', ' ', ' ', ' ', ' ', ' ', ' ', ' '},
+//             {' ', ' ', ' ', ' ', ' ', 'K', ' ', ' '},
+//         };
 
-    Board b = Board(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0);
+//     Board b = Board(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0);
     
-    b.read_in_char_board(board, 0);
-    Board::print_char_board(b);
+//     b.read_in_char_board(board, 0);
+//     Board::print_char_board(b);
 
-    Move best = Engine::find_move(&b);
+//     Move best = Engine::find_move(&b);
 
-    Board::make_move(&b, best);
+//     Board::make_move(&b, best);
 
-    Board::print_char_board(b);
+//     Board::print_char_board(b);
 
-    vector<Move> ms = Board::move_gen1(&b);
+//     vector<Move> ms = Board::move_gen1(&b);
 
-    Board::undo_move(&b, best);
+//     Board::undo_move(&b, best);
     
-    Board::print_char_board(b);
+//     Board::print_char_board(b);
 
     
-}
+// }
