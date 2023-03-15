@@ -15,13 +15,14 @@
 
 #define ll unsigned long long
 
-int MAX_ENGINE_DEPTH = 3;
-int MAX_ENGINE_DEPTH_FINAL = 4;
+int MAX_ENGINE_DEPTH = 2;
+int MAX_ENGINE_DEPTH_FINAL = 2;
 
+// lmao
 std::string zeroes = "0000000000000000000000000000000000000000000000000000000000000000";
 
 // files
-ll A_FILE = 0b1000000010000000100000001000000010000000100000001000000010000000;
+ll A_FILE = 0x8080808080808080;
 ll B_FILE = A_FILE >> 1;
 ll C_FILE = B_FILE >> 1;
 ll D_FILE = C_FILE >> 1;
@@ -65,8 +66,19 @@ std::map<char,int> piece_val;
 std::map<ll,std::string> coordsFor;
 std::map<std::string,ll> coordsBack;
 
+struct Move {
+    char piece;
 
-long node_count;
+    std::string destination;
+    std::string location;
 
+    char promotion;
+    char captures;
+
+    bool longcastle;
+    bool shortcastle;
+    bool white;
+    bool check;
+};
 
 #endif

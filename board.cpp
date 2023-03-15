@@ -1,375 +1,6 @@
-#include "g2.h"
+#include "move_generator.cpp"
 
 using namespace std;
-
-struct Move {
-    char piece;
-
-    string destination;
-    string location;
-
-    char promotion;
-    char captures;
-
-    bool longcastle;
-    bool shortcastle;
-    bool white;
-    bool check;
-    ll enpassant;
-};
-
-class BitManipulation {
-   public:
-    static ll reverse_bits(ll bits) {
-        ll reversed = 0;
-        for (int i = 0; i < 64; i++) {
-            if (bits & (ll)pow(2, i)) {
-                reversed += (ll)pow(2, 63 - i);
-            }
-        }
-        return reversed;
-    }
-
-    static ll horizontal_mirror(ll bits) {
-        ll a = 0b0101010101010101010101010101010101010101010101010101010101010101;
-        ll b = 0b0011001100110011001100110011001100110011001100110011001100110011;
-        ll c = 0b111100001111000011110000111100001111000011110000111100001111;
-
-        bits = ((bits >> 1) & a) + 2 * (bits & a);
-        bits = ((bits >> 2) & b) + 4 * (bits & b);
-        bits = ((bits >> 4) & c) + 16 * (bits & c);
-
-        return bits;
-    }
-
-    static ll aeight_hone_mirror(ll a) {
-        ll d1 = 0x5500550055005500 << 1;
-        ll d2 = 0x3333000033330000 << 2;
-        ll d3 = 0xf0f0f0f000000000;
-
-        ll otherBits = (a << 36) & d3;
-        a = otherBits ^ ((a >> 36) & (d3 >> 36) ^ ((a & (d3 >> 32)) ^ (a & (d3 >> 4))));
-
-        otherBits = ((a << 18) & d2);
-        a = otherBits ^ ((a >> 18) & (d2 >> 18)) ^ (a & (d2 >> 2) ^ (a & d2 >> 16));
-
-        otherBits = (a << 9) & d1;
-        a = otherBits ^ ((a >> 9) & (d1 >> 9)) ^ (a & (d1 >> 1) ^ (a & (d1 >> 8)));
-
-        return a;
-    }
-
-    static ll aone_height_mirror(ll a) {
-        ll d1 = 0x5500550055005500;
-        ll d2 = 0x3333000033330000;
-        ll d3 = 0x0f0f0f0f00000000;
-        ll otherBits = 0;
-
-        otherBits = (a << 28) & d3;
-        a = otherBits ^ ((a >> 28) & (d3 >> 28)) ^ ((a & (d3 << 4)) ^ (a & (d3 >> 32)));
-
-        otherBits = ((a << 14) & d2);
-        a = otherBits ^ ((a >> 14) & (d2 >> 14)) ^ (a & (d2 << 2) ^ (a & (d2 >> 16)));
-
-        otherBits = (a << 7) & d1;
-        a = otherBits ^ ((a >> 7) & (d1 >> 7)) ^ (a & (d1 << 1) ^ (a & (d1 >> 8)));
-
-        return a;
-    }
-
-    static ll rotate_counterclock(ll a) {
-        return BitManipulation::aone_height_mirror(BitManipulation::horizontal_mirror(a));
-    }
-
-    static ll rotate_clock(ll a) {
-        return BitManipulation::aeight_hone_mirror(BitManipulation::horizontal_mirror(a));
-    }
-
-    static ll pop_LSB(ll *bits) {
-        ll res = *bits ^ ((*bits - 1) & *bits);
-        *bits = *bits ^ res;
-        return res;
-    }
-
-    static void printBitboard(ll bits) {
-        bitset<64> b(bits);
-        string bitsets = b.to_string();
-        for (int i = 0; i < 64; i++) {
-            if (i % 8 == 0) {
-                cout << endl;
-            }
-            cout << bitsets[i];
-            cout << " ";
-        }
-        cout << endl;
-    }
-};
-
-class moveGeneration {
-   public:
-    static ll white_pawn_moves(ll pawns, ll occupied, ll black, ll enpassant) {
-        ll moves = ((pawns << 8) & ~occupied);
-        moves |= (((((pawns & TWO_RANK) << 8) & ~occupied) << 8) & ~occupied);
-        moves |= (pawns << 9) & (~H_FILE & black);
-        moves |= (pawns << 7) & (~A_FILE & black);
-        return moves;
-    }
-
-    static ll white_pawn_captures(ll pawns, ll occupied, ll black, ll enpassant) {
-        ll moves = 0;
-        moves |= (pawns << 9) & (~H_FILE & black);
-        moves |= (pawns << 7) & (~A_FILE & black);
-        return moves;
-    }
-
-    static ll black_pawn_moves(ll pawns, ll occupied, ll white, ll enpassant) {
-        ll moves = ((pawns >> 8) & ~occupied);
-        moves |= (((((pawns & SEVEN_RANK) >> 8) & ~occupied) >> 8) & ~occupied);
-        moves |= (pawns >> 9) & (~A_FILE & white);
-        moves |= (pawns >> 7) & (~H_FILE & white);
-        return moves;
-    }
-
-    static ll black_pawn_captures(ll pawns, ll occupied, ll white, ll enpassant) {
-        ll moves = 0;
-        moves |= (pawns >> 9) & (~A_FILE & white);
-        moves |= (pawns >> 7) & (~H_FILE & white);
-        return moves;
-    }
-
-    static ll king_moves(ll king) {
-        ll moves = 0;
-
-        moves |= (king << 1) & ~H_FILE;
-        moves |= (king << 9) & ~H_FILE;
-        moves |= (king << 7) & ~A_FILE;
-        moves |= (king >> 8);
-        moves |= (king >> 1) & ~A_FILE;
-        moves |= (king >> 9) & ~A_FILE;
-        moves |= (king >> 7) & ~H_FILE;
-        moves |= (king << 8);
-
-        return moves;
-    }
-
-    static ll knight_moves(ll knights) {
-        ll moves = 0;
-
-        moves |= (knights << 6 & ~(A_FILE | B_FILE));
-        moves |= (knights << 10 & ~(G_FILE | H_FILE));
-        moves |= (knights << 15 & ~A_FILE);
-        moves |= (knights << 17 & ~H_FILE);
-        moves |= (knights >> 6 & ~(G_FILE | H_FILE));
-        moves |= (knights >> 10 & ~(A_FILE | B_FILE));
-        moves |= (knights >> 15 & ~H_FILE);
-        moves |= (knights >> 17 & ~A_FILE);
-
-        return moves;
-    }
-
-    static ll left_ray(ll movers, ll occupied) {
-        return (((occupied | H_FILE) - (movers << 1)) ^ (occupied | H_FILE)) & ~H_FILE;
-    }
-
-    static ll left_x_ray(ll movers, ll occupied) {
-        ll k = ((occupied | H_FILE) - (movers << 1)) & (occupied | H_FILE);
-        return (((k | H_FILE) - (movers << 1)) ^ k) & ~H_FILE;
-    }
-
-    static ll right_ray(ll movers, ll occupied) {
-        ll rotated_board = BitManipulation::reverse_bits(occupied);
-        ll mover = BitManipulation::reverse_bits(movers);
-        return BitManipulation::reverse_bits(moveGeneration::left_ray(mover, rotated_board));
-    }
-
-    static ll right_x_ray(ll movers, ll occupied) {
-        ll rotated_board = BitManipulation::reverse_bits(occupied);
-        ll mover = BitManipulation::reverse_bits(movers);
-        return BitManipulation::reverse_bits(moveGeneration::left_x_ray(mover, rotated_board));
-    }
-
-    static ll up_ray(ll movers, ll occupied) {
-        ll rotated_board = BitManipulation::rotate_counterclock(occupied);
-        ll mover = BitManipulation::rotate_counterclock(movers);
-        return BitManipulation::rotate_clock(moveGeneration::left_ray(mover, rotated_board));
-    }
-
-    static ll up_x_ray(ll movers, ll occupied) {
-        ll rotated_board = BitManipulation::rotate_counterclock(occupied);
-        ll mover = BitManipulation::rotate_counterclock(movers);
-        return BitManipulation::rotate_clock(moveGeneration::left_x_ray(mover, rotated_board));
-    }
-
-    static ll down_ray(ll movers, ll occupied) {
-        ll rotated_board = BitManipulation::rotate_clock(occupied);
-        ll mover = BitManipulation::rotate_clock(movers);
-        return BitManipulation::rotate_counterclock(moveGeneration::left_ray(mover, rotated_board));
-    }
-
-    static ll down_x_ray(ll movers, ll occupied) {
-        ll rotated_board = BitManipulation::rotate_clock(occupied);
-        ll mover = BitManipulation::rotate_clock(movers);
-        return BitManipulation::rotate_counterclock(moveGeneration::left_x_ray(mover, rotated_board));
-    }
-
-    static ll down_left_ray(ll movers, ll occupied) {
-        ll res = 0;
-
-        for (int i = 0; i < 15; i++) {
-            if ((movers & DIAG[i]) != 0) {
-                ll diag = (((occupied & DIAG[i]) | 0b10000000) * H_FILE) >> 56;
-                ll mvs = ((movers & DIAG[i]) * H_FILE) >> 56;
-                ll moves = (diag - (mvs << 1)) ^ diag;
-                res |= ((moves * H_FILE) & DIAG[i]);
-            }
-        }
-
-        return res;
-    }
-
-    static ll down_left_x_ray(ll movers, ll occupied) {
-        ll res = 0;
-
-        for (int i = 0; i < 15; i++) {
-            if ((movers & DIAG[i]) != 0) {
-                ll diag = (((occupied & DIAG[i]) | 0b10000000) * H_FILE) >> 56;
-                ll mvs = ((movers & DIAG[i]) * H_FILE) >> 56;
-
-                ll moves = ((diag - (mvs << 1)) & diag);
-                moves = ((moves | H_FILE) - (mvs << 1)) ^ moves;
-
-                res |= (((moves & ~H_FILE) * H_FILE) & DIAG[i]);
-            }
-        }
-
-        return res;
-    }
-
-    static ll up_left_ray(ll movers, ll occupied) {
-        ll res = 0;
-
-        for (int i = 0; i < 15; i++) {
-            if ((movers & ANTI_DIAG[i]) != 0) {
-                ll diag = (((occupied & ANTI_DIAG[i]) | 0b10000000) * H_FILE) >> 56;
-                ll mvs = ((movers & ANTI_DIAG[i]) * H_FILE) >> 56;
-                ll moves = (diag - (mvs << 1)) ^ diag;
-                res |= ((moves * H_FILE) & ANTI_DIAG[i]);
-            }
-        }
-
-        return res;
-    }
-
-    static ll up_left_x_ray(ll movers, ll occupied) {
-        ll res = 0;
-
-        for (int i = 0; i < 15; i++) {
-            if ((movers & ANTI_DIAG[i]) != 0) {
-                ll diag = (((occupied & ANTI_DIAG[i]) | 0b10000000) * H_FILE) >> 56;
-                ll mvs = ((movers & ANTI_DIAG[i]) * H_FILE) >> 56;
-                ll moves = (diag - (mvs << 1)) & diag;
-
-                moves = (moves - (mvs << 1)) ^ moves;
-
-                res |= ((moves * H_FILE) & ANTI_DIAG[i]);
-            }
-        }
-
-        return res;
-    }
-
-    static ll down_right_ray(ll movers, ll occupied) {
-        ll res = 0;
-
-        for (int i = 0; i < 15; i++) {
-            if ((movers & ANTI_DIAG[i]) != 0) {
-                ll diag = (((occupied & ANTI_DIAG[i])) * H_FILE) >> 56;
-                ll mvs = ((movers & ANTI_DIAG[i]) * H_FILE) >> 56;
-
-                diag = BitManipulation::reverse_bits(diag);
-                mvs = BitManipulation::reverse_bits(mvs);
-                diag >>= 56;
-                mvs >>= 56;
-                ll moves = BitManipulation::reverse_bits((diag - (mvs << 1)) ^ diag) >> 56;
-
-                res |= (moves * H_FILE) & ANTI_DIAG[i];
-            }
-        }
-
-        return res;
-    }
-
-    static ll down_right_x_ray(ll movers, ll occupied) {
-        ll res = 0;
-
-        for (int i = 0; i < 15; i++) {
-            if ((movers & ANTI_DIAG[i]) != 0) {
-                ll diag = (((occupied & ANTI_DIAG[i])) * H_FILE) >> 56;
-                ll mvs = ((movers & ANTI_DIAG[i]) * H_FILE) >> 56;
-
-                diag = BitManipulation::reverse_bits(diag);
-                mvs = BitManipulation::reverse_bits(mvs);
-                diag >>= 56;
-                mvs >>= 56;
-
-                ll moves = (diag - (mvs << 1)) & diag;
-                moves = (moves - (mvs << 1)) ^ moves;
-
-                moves = BitManipulation::reverse_bits(moves) >> 56;
-
-                res |= (moves * H_FILE) & ANTI_DIAG[i];
-            }
-        }
-
-        return res;
-    }
-
-    static ll up_right_ray(ll movers, ll occupied) {
-        ll res = 0;
-
-        for (int i = 0; i < 15; i++) {
-            if ((movers & DIAG[i]) != 0) {
-                ll diag = (((occupied & DIAG[i])) * H_FILE) >> 56;
-                ll mvs = ((movers & DIAG[i]) * H_FILE) >> 56;
-
-                diag = BitManipulation::reverse_bits(diag);
-                mvs = BitManipulation::reverse_bits(mvs);
-                diag >>= 56;
-                mvs >>= 56;
-                ll moves = BitManipulation::reverse_bits((diag - (mvs << 1)) ^ diag) >> 56;
-
-                res |= (moves * H_FILE) & DIAG[i];
-            }
-        }
-
-        return res;
-    }
-
-    static ll up_right_x_ray(ll movers, ll occupied) {
-        ll res = 0;
-
-        for (int i = 0; i < 15; i++) {
-            if ((movers & DIAG[i]) != 0) {
-                ll diag = (((occupied & DIAG[i])) * H_FILE) >> 56;
-                ll mvs = ((movers & DIAG[i]) * H_FILE) >> 56;
-
-                diag = BitManipulation::reverse_bits(diag);
-                mvs = BitManipulation::reverse_bits(mvs);
-                diag >>= 56;
-                mvs >>= 56;
-
-                ll moves = (diag - (mvs << 1)) & diag;
-                moves = (moves - (mvs << 1)) ^ moves;
-
-                moves = BitManipulation::reverse_bits(moves) >> 56;
-
-                res |= (moves * H_FILE) & DIAG[i];
-            }
-        }
-
-        return res;
-    }
-};
 
 class Board {
    public:
@@ -398,7 +29,6 @@ class Board {
     ll allB;
     ll all;
     ll nevermoved;
-    ll enpassant;
 
     static void print_char_board(Board b) {
         map<char, int> coord;
@@ -584,7 +214,6 @@ class Board {
         this->all = (stoull(W, 0, 2) | stoull(B, 0, 2));
         this->empty = stoull(E, 0, 2);
         this->nevermoved = (stoull(W, 0, 2) | stoull(B, 0, 2));
-        this->enpassant = 0;
         this->turn = turn;
 
         string files = "abcdefgh";
@@ -599,7 +228,7 @@ class Board {
         }
     }
 
-    Board(ll WP, ll WK, ll WQ, ll WB, ll WN, ll WR, ll BP, ll BQ, ll BK, ll BN, ll BB, ll BR, bool turn, ll enpassant, ll nevermoved) {
+    Board(ll WP, ll WK, ll WQ, ll WB, ll WN, ll WR, ll BP, ll BQ, ll BK, ll BN, ll BB, ll BR, bool turn, ll nevermoved) {
         this->WP = WP;
         this->WR = WR;
         this->WN = WN;
@@ -613,7 +242,6 @@ class Board {
         this->BQ = BQ;
         this->BK = BK;
         this->turn = turn;
-        this->enpassant = enpassant;
         this->allW = WK | WQ | WP | WN | WR | WB;
         this->allB = BK | BQ | BP | BN | BR | BB;
         this->all = this->allW | this->allB;
@@ -632,116 +260,79 @@ class Board {
                 coordsBack[coords] = curSquare;
             }
         }
-
-        piece_val['P'] = 1;
-        piece_val['p'] = 1;
-        piece_val['N'] = 3;
-        piece_val['n'] = 3;
-        piece_val['B'] = 4;
-        piece_val['b'] = 4;
-        piece_val['R'] = 5;
-        piece_val['r'] = 5;
-        piece_val['Q'] = 9;
-        piece_val['q'] = 9;
-
-        node_count = 1;
-
     }
 
-    static ll white_attacks(ll WP, ll WK, ll WQ, ll WB, ll WN, ll WR, ll all, ll allB, ll enpassant) {
+    static ll white_attacks(Board *b) {
         ll attacks = 0;
+        
+        // pawn moves
+        attacks |= moveGeneration::white_pawn_captures(b->WP, b->all, 0xFFFFFFFFFFFFFFFF);
+        
+        // rook moves
+        attacks |= moveGeneration::left_ray(b->WR, b->all);
+        attacks |= moveGeneration::right_ray(b->WR, b->all);
+        attacks |= moveGeneration::down_ray(b->WR, b->all);
+        attacks |= moveGeneration::up_ray(b->WR, b->all);
+        
+        // bishop moves
+        attacks |= moveGeneration::up_left_ray(b->WB, b->all);
+        attacks |= moveGeneration::up_right_ray(b->WB, b->all);
+        attacks |= moveGeneration::down_left_ray(b->WB, b->all);
+        attacks |= moveGeneration::down_right_ray(b->WB, b->all);
 
-        while (WP) {
-            ll cur = BitManipulation::pop_LSB(&WP);
-            attacks |= moveGeneration::white_pawn_captures(cur, all, allB, enpassant);
-        }
+        // queen moves
+        attacks |= moveGeneration::left_ray(b->WQ, b->all);
+        attacks |= moveGeneration::right_ray(b->WQ, b->all);
+        attacks |= moveGeneration::down_ray(b->WQ, b->all);
+        attacks |= moveGeneration::up_ray(b->WQ, b->all);
+        attacks |= moveGeneration::up_left_ray(b->WQ, b->all);
+        attacks |= moveGeneration::up_right_ray(b->WQ, b->all);
+        attacks |= moveGeneration::down_left_ray(b->WQ, b->all);
+        attacks |= moveGeneration::down_right_ray(b->WQ, b->all);
 
-        while (WR) {
-            ll cur = BitManipulation::pop_LSB(&WR);
-            attacks |= moveGeneration::left_ray(cur, all);
-            attacks |= moveGeneration::right_ray(cur, all);
-            attacks |= moveGeneration::down_ray(cur, all);
-            attacks |= moveGeneration::up_ray(cur, all);
-        }
-
-        while (WB) {
-            ll cur = BitManipulation::pop_LSB(&WB);
-            attacks |= moveGeneration::up_left_ray(cur, all);
-            attacks |= moveGeneration::up_right_ray(cur, all);
-            attacks |= moveGeneration::down_left_ray(cur, all);
-            attacks |= moveGeneration::down_right_ray(cur, all);
-        }
-
-        while (WQ) {
-            ll cur = BitManipulation::pop_LSB(&WQ);
-            attacks |= moveGeneration::left_ray(cur, all);
-            attacks |= moveGeneration::right_ray(cur, all);
-            attacks |= moveGeneration::down_ray(cur, all);
-            attacks |= moveGeneration::up_ray(cur, all);
-            attacks |= moveGeneration::up_left_ray(cur, all);
-            attacks |= moveGeneration::up_right_ray(cur, all);
-            attacks |= moveGeneration::down_left_ray(cur, all);
-            attacks |= moveGeneration::down_right_ray(cur, all);
-        }
-
-        while (WN) {
-            ll cur = BitManipulation::pop_LSB(&WN);
-            attacks |= moveGeneration::knight_moves(cur);
-        }
-
-        while (WK) {
-            ll cur = BitManipulation::pop_LSB(&WK);
-            attacks |= moveGeneration::king_moves(cur);
-        }
+        // knight moves
+        attacks |= moveGeneration::knight_moves(b->WN);
+        
+        // king moves
+        attacks |= moveGeneration::king_moves(b->WK);
+        
         return attacks;
     }
 
-    static ll black_attacks(ll BP, ll BQ, ll BK, ll BN, ll BB, ll BR, ll all, ll allW, ll enpassant) {
+    static ll black_attacks(Board *b) {
         ll attacks = 0;
+        
+        // pawn moves
+        attacks |= moveGeneration::black_pawn_captures(b->BP, b->all, 0xFFFFFFFFFFFFFFFF);
+        
+        // rook moves
+        attacks |= moveGeneration::left_ray(b->BR, b->all);
+        attacks |= moveGeneration::right_ray(b->BR, b->all);
+        attacks |= moveGeneration::down_ray(b->BR, b->all);
+        attacks |= moveGeneration::up_ray(b->BR, b->all);
+        
+        // bishop moves
+        attacks |= moveGeneration::up_left_ray(b->BB, b->all);
+        attacks |= moveGeneration::up_right_ray(b->BB, b->all);
+        attacks |= moveGeneration::down_left_ray(b->BB, b->all);
+        attacks |= moveGeneration::down_right_ray(b->BB, b->all);
 
-        while (BP) {
-            ll cur = BitManipulation::pop_LSB(&BP);
-            attacks |= moveGeneration::black_pawn_captures(cur, all, allW, enpassant);
-        }
+        // queen moves
+        attacks |= moveGeneration::left_ray(b->BQ, b->all);
+        attacks |= moveGeneration::right_ray(b->BQ, b->all);
+        attacks |= moveGeneration::down_ray(b->BQ, b->all);
+        attacks |= moveGeneration::up_ray(b->BQ, b->all);
+        attacks |= moveGeneration::up_left_ray(b->BQ, b->all);
+        attacks |= moveGeneration::up_right_ray(b->BQ, b->all);
+        attacks |= moveGeneration::down_left_ray(b->BQ, b->all);
+        attacks |= moveGeneration::down_right_ray(b->BQ, b->all);
 
-        while (BR) {
-            ll cur = BitManipulation::pop_LSB(&BR);
-            attacks |= moveGeneration::left_ray(cur, all);
-            attacks |= moveGeneration::right_ray(cur, all);
-            attacks |= moveGeneration::down_ray(cur, all);
-            attacks |= moveGeneration::up_ray(cur, all);
-        }
-
-        while (BB) {
-            ll cur = BitManipulation::pop_LSB(&BB);
-            attacks |= moveGeneration::up_left_ray(cur, all);
-            attacks |= moveGeneration::up_right_ray(cur, all);
-            attacks |= moveGeneration::down_left_ray(cur, all);
-            attacks |= moveGeneration::down_right_ray(cur, all);
-        }
-
-        while (BQ) {
-            ll cur = BitManipulation::pop_LSB(&BQ);
-            attacks |= moveGeneration::left_ray(cur, all);
-            attacks |= moveGeneration::right_ray(cur, all);
-            attacks |= moveGeneration::down_ray(cur, all);
-            attacks |= moveGeneration::up_ray(cur, all);
-            attacks |= moveGeneration::up_left_ray(cur, all);
-            attacks |= moveGeneration::up_right_ray(cur, all);
-            attacks |= moveGeneration::down_left_ray(cur, all);
-            attacks |= moveGeneration::down_right_ray(cur, all);
-        }
-
-        while (BN) {
-            ll cur = BitManipulation::pop_LSB(&BN);
-            attacks |= moveGeneration::knight_moves(cur);
-        }
-
-        while (BK) {
-            ll cur = BitManipulation::pop_LSB(&BK);
-            attacks |= moveGeneration::king_moves(cur);
-        }
-
+        // knight moves
+        attacks |= moveGeneration::knight_moves(b->BN);
+        
+        // king moves
+        attacks |= moveGeneration::king_moves(b->BK);
+        
         return attacks;
     }
 
@@ -776,40 +367,15 @@ class Board {
 
     static vector<Move> move_gen1(Board *b) {
         vector<Move> moves_list;
+
         if (b->turn) {
             ll wp = b->WP;
             ll moves = 0;
+            
             while (wp) {
                 ll cur = BitManipulation::pop_LSB(&wp);
-                moves |= moveGeneration::white_pawn_moves(cur, b->all, b->allB, b->enpassant);
-                if (b->enpassant && (cur & FIVE_RANK) != 0) {
-
-                    if ((((b->enpassant >> 1) & ~A_FILE) & cur) != 0 ||
-                        (((b->enpassant << 1) & ~H_FILE) & cur) != 0) {
-
-                        struct Move mv;
-                        mv.piece = 'P';
-                        mv.location = b->squareMap[cur];
-                        mv.destination = b->squareMap[b->enpassant << 8];
-                        mv.shortcastle = false;
-                        mv.longcastle = false;
-                        mv.captures = 'p';
-                        mv.enpassant = b->enpassant;
-                        mv.promotion = ' ';
-                        mv.white = true;
-
-                        vector<int> res = legal_move(mv, b->WP, b->WK, b->WQ, b->WB, b->WN, b->WR, b->BP, b->BQ, b->BK, b->BN, b->BB, b->BR, b->all, b->allW, b->allB, b->enpassant);
-                        if (res[0] == 1) {
-                            if (res[1] == 0) {
-                                mv.check = 0;
-                            } else {
-                                mv.check = 1;
-                            }
-                            moves_list.push_back(mv);
-                        }
-                    }
-                }
-
+                moves |= moveGeneration::white_pawn_moves(cur, b->all, b->allB);
+                
                 while (moves) {
                     ll dest = BitManipulation::pop_LSB(&moves);
 
@@ -822,30 +388,31 @@ class Board {
                     mv.longcastle = false;
                     mv.promotion = ' ';
                     mv.white = true;
-
                     mv.captures = captures(b, dest);
-                    mv.enpassant = 0;
 
-                    vector<int> res = legal_move(mv, b->WP, b->WK, b->WQ, b->WB, b->WN, b->WR, b->BP, b->BQ, b->BK, b->BN, b->BB, b->BR, b->all, b->allW, b->allB, b->enpassant);
-                    
-                    if (res[0]) {
-                        if (dest & EIGHT_RANK) {
-                            char promotions[4] = {'q', 'r', 'b', 'n'};
-                            for (int i = 0; i < 4; i++) {
-                                mv.promotion = promotions[i];
+                    if (dest & EIGHT_RANK) {
+                        char promotions[4] = {'q', 'r', 'b', 'n'};
+                        for (int i = 0; i < 4; i++) {
+                            mv.promotion = promotions[i];
+                            vector<int> res = legal_move(mv, b);
+                            if (res[0]) {
+                                if (res[1] ? mv.check = 1 : mv.check = 0)
                                 moves_list.push_back(mv);
                             }
-                        } else {
-                            if (res[0] == 1) {
-                                if (res[1] == 0) {
-                                    mv.check = 0;
-                                } else {
-                                    mv.check = 1;
-                                }
-                                moves_list.push_back(mv);
-                            }                            
                         }
-                    }
+                    } else {
+                        vector<int> res = legal_move(mv, b);
+                        
+                        if (res[0]) {
+                            if (res[1] == 0) {
+                                mv.check = 0;
+                            } else {
+                                mv.check = 1;
+                            }
+                            moves_list.push_back(mv);
+                        }  
+                    }                  
+                    
                 }
             }
             ll wr = b->WR;
@@ -870,9 +437,9 @@ class Board {
                     mv.white = true;
 
                     mv.captures = captures(b, destination);
-                    mv.enpassant = 0;
                     
-                    vector<int> res = legal_move(mv, b->WP, b->WK, b->WQ, b->WB, b->WN, b->WR, b->BP, b->BQ, b->BK, b->BN, b->BB, b->BR, b->all, b->allW, b->allB, b->enpassant);
+                    
+                    vector<int> res = legal_move(mv, b);
                     if (res[0] == 1) {
                         if (res[1] == 0) {
                             mv.check = false;
@@ -905,9 +472,9 @@ class Board {
                     mv.white = true;
 
                     mv.captures = captures(b, destination);
-                    mv.enpassant = 0;
+                    
 
-                    vector<int> res = legal_move(mv, b->WP, b->WK, b->WQ, b->WB, b->WN, b->WR, b->BP, b->BQ, b->BK, b->BN, b->BB, b->BR, b->all, b->allW, b->allB, b->enpassant);
+                    vector<int> res = legal_move(mv, b);
                     if (res[0] == 1) {
                         if (res[1] == 0) {
                             mv.check = false;
@@ -944,9 +511,9 @@ class Board {
                     mv.white = true;
 
                     mv.captures = captures(b, destination);
-                    mv.enpassant = 0;
+                    
 
-                    vector<int> res = legal_move(mv, b->WP, b->WK, b->WQ, b->WB, b->WN, b->WR, b->BP, b->BQ, b->BK, b->BN, b->BB, b->BR, b->all, b->allW, b->allB, b->enpassant);
+                    vector<int> res = legal_move(mv, b);
                     if (res[0] == 1) {
                         if (res[1] == 0) {
                             mv.check = false;
@@ -976,9 +543,9 @@ class Board {
                     mv.white = true;
 
                     mv.captures = captures(b, destination);
-                    mv.enpassant = 0;
+                    
 
-                    vector<int> res = legal_move(mv, b->WP, b->WK, b->WQ, b->WB, b->WN, b->WR, b->BP, b->BQ, b->BK, b->BN, b->BB, b->BR, b->all, b->allW, b->allB, b->enpassant);
+                    vector<int> res = legal_move(mv, b);
                     if (res[0] == 1) {
                         if (res[1] == 0) {
                             mv.check = false;
@@ -1007,9 +574,9 @@ class Board {
                     mv.white = true;
 
                     mv.captures = captures(b, destination);
-                    mv.enpassant = 0;
+                    
 
-                    vector<int> res = legal_move(mv, b->WP, b->WK, b->WQ, b->WB, b->WN, b->WR, b->BP, b->BQ, b->BK, b->BN, b->BB, b->BR, b->all, b->allW, b->allB, b->enpassant);
+                    vector<int> res = legal_move(mv, b);
                     if (res[0] == 1) {
                         if (res[1] == 0) {
                             mv.check = false;
@@ -1022,7 +589,7 @@ class Board {
             }
 
             // check if castling is legal
-            ll in_attack = Board::black_attacks(b->BP, b->BQ, b->BK, b->BN, b->BB, b->BR, b->all, b->allW, b->enpassant);
+            ll in_attack = Board::black_attacks(b);
 
             if ((in_attack & (G_FILE & FIRST_RANK)) == 0 &&
                 (in_attack & (F_FILE & FIRST_RANK)) == 0 &&
@@ -1041,9 +608,8 @@ class Board {
                         mv.white = true;
 
                         mv.captures = ' ';
-                        mv.enpassant = 0;
 
-                        vector<int> res = legal_move(mv, b->WP, b->WK, b->WQ, b->WB, b->WN, b->WR, b->BP, b->BQ, b->BK, b->BN, b->BB, b->BR, b->all, b->allW, b->allB, b->enpassant);
+                        vector<int> res = legal_move(mv, b);
                     
                         if (res[1] == 0) {
                             mv.check = 0;
@@ -1073,9 +639,8 @@ class Board {
                         mv.white = true;
 
                         mv.captures = ' ';
-                        mv.enpassant = 0;
 
-                        vector<int> res = legal_move(mv, b->WP, b->WK, b->WQ, b->WB, b->WN, b->WR, b->BP, b->BQ, b->BK, b->BN, b->BB, b->BR, b->all, b->allW, b->allB, b->enpassant);
+                        vector<int> res = legal_move(mv, b);
 
                         if (res[1] == 0) {
                             mv.check = 0;
@@ -1091,35 +656,7 @@ class Board {
             ll moves = 0;
             while (bp) {
                 ll cur = BitManipulation::pop_LSB(&bp);
-                moves |= moveGeneration::black_pawn_moves(cur, b->all, b->allW, b->enpassant);
-
-                if (b->enpassant && (cur & FOUR_RANK) != 0) {
-                    if ((((b->enpassant >> 1) & ~A_FILE) & cur) != 0 ||
-                        (((b->enpassant << 1) & ~H_FILE) & cur) != 0) {
-
-                        struct Move mv;
-                        mv.piece = 'p';
-                        mv.location = b->squareMap[cur];
-                        mv.destination = b->squareMap[b->enpassant >> 8];
-                        mv.shortcastle = false;
-                        mv.longcastle = false;
-                        mv.promotion = ' ';
-                        mv.white = false;
-
-                        mv.captures = 'P';
-                        mv.enpassant = b->enpassant;
-
-                        vector<int> res = legal_move(mv, b->WP, b->WK, b->WQ, b->WB, b->WN, b->WR, b->BP, b->BQ, b->BK, b->BN, b->BB, b->BR, b->all, b->allW, b->allB, b->enpassant);
-                        if (res[0] == 1) {
-                            if (res[1] == 0) {
-                                mv.check = 0;
-                            } else {
-                                mv.check = 1;
-                            }
-                            moves_list.push_back(mv);
-                        }
-                    }
-                }
+                moves |= moveGeneration::black_pawn_moves(cur, b->all, b->allW);
 
                 while (moves) {
                     ll dest = BitManipulation::pop_LSB(&moves);
@@ -1135,27 +672,29 @@ class Board {
                     mv.white = false;
 
                     mv.captures = captures(b, dest);
-                    mv.enpassant = 0;
-
-
-                    vector<int> res = legal_move(mv, b->WP, b->WK, b->WQ, b->WB, b->WN, b->WR, b->BP, b->BQ, b->BK, b->BN, b->BB, b->BR, b->all, b->allW, b->allB, b->enpassant);
-
-                    if (res[0]) {
-                        if (dest & FIRST_RANK) {
-                            char promotions[4] = {'q', 'r', 'b', 'n'};
-                            for (int i = 0; i < 4; i++) {
-                                mv.promotion = promotions[i];
+                    
+                    if (dest & FIRST_RANK) {
+                        char promotions[4] = {'q', 'r', 'b', 'n'};
+                        for (int i = 0; i < 4; i++) {
+                            mv.promotion = promotions[i];
+                            vector<int> res = legal_move(mv, b);
+                            if (res[0]) {
+                                if (res[1] ? mv.check = 1 : mv.check = 0)
                                 moves_list.push_back(mv);
                             }
-                        } else {
+                        }
+                    } else {
+                        vector<int> res = legal_move(mv, b);
+                        
+                        if (res[0]) {
                             if (res[1] == 0) {
                                 mv.check = 0;
                             } else {
                                 mv.check = 1;
                             }
                             moves_list.push_back(mv);
-                            }
-                    }
+                        }  
+                    }   
                 }
             }
             ll br = b->BR;
@@ -1180,9 +719,10 @@ class Board {
                     mv.white = false;
 
                     mv.captures = captures(b, destination);
-                    mv.enpassant = 0;
+                    
 
-                    vector<int> res = legal_move(mv, b->WP, b->WK, b->WQ, b->WB, b->WN, b->WR, b->BP, b->BQ, b->BK, b->BN, b->BB, b->BR, b->all, b->allW, b->allB, b->enpassant);
+                    vector<int> res = legal_move(mv, b);
+
                     if (res[0] == 1) {
                         if (res[1] == 0) {
                             mv.check = 0;
@@ -1193,9 +733,11 @@ class Board {
                     }
                 }
             }
+
             ll bb = b->BB;
             while (bb) {
                 ll cur = BitManipulation::pop_LSB(&bb);
+
                 moves |= moveGeneration::up_left_ray(cur, b->all);
                 moves |= moveGeneration::up_right_ray(cur, b->all);
                 moves |= moveGeneration::down_left_ray(cur, b->all);
@@ -1215,10 +757,8 @@ class Board {
                     mv.white = false;
 
                     mv.captures = captures(b, destination);
-                    mv.enpassant = 0;
-
-
-                    vector<int> res = legal_move(mv, b->WP, b->WK, b->WQ, b->WB, b->WN, b->WR, b->BP, b->BQ, b->BK, b->BN, b->BB, b->BR, b->all, b->allW, b->allB, b->enpassant);
+                    
+                    vector<int> res = legal_move(mv, b);
                     if (res[0] == 1) {
                         if (res[1] == 0) {
                             mv.check = 0;
@@ -1254,9 +794,8 @@ class Board {
                     mv.white = false;
 
                     mv.captures = captures(b, destination);
-                    mv.enpassant = 0;
 
-                    vector<int> res = legal_move(mv, b->WP, b->WK, b->WQ, b->WB, b->WN, b->WR, b->BP, b->BQ, b->BK, b->BN, b->BB, b->BR, b->all, b->allW, b->allB, b->enpassant);
+                    vector<int> res = legal_move(mv, b);
                     if (res[0] == 1) {
                         if (res[1] == 0) {
                             mv.check = 0;
@@ -1285,9 +824,8 @@ class Board {
                     mv.white = false;
 
                     mv.captures = captures(b, destination);
-                    mv.enpassant = 0;
-
-                    vector<int> res = legal_move(mv, b->WP, b->WK, b->WQ, b->WB, b->WN, b->WR, b->BP, b->BQ, b->BK, b->BN, b->BB, b->BR, b->all, b->allW, b->allB, b->enpassant);
+                    
+                    vector<int> res = legal_move(mv, b);
                     if (res[0] == 1) {
                         if (res[1] == 0) {
                             mv.check = 0;
@@ -1316,9 +854,8 @@ class Board {
                     mv.white = false;
 
                     mv.captures = captures(b, destination);
-                    mv.enpassant = 0;
 
-                    vector<int> res = legal_move(mv, b->WP, b->WK, b->WQ, b->WB, b->WN, b->WR, b->BP, b->BQ, b->BK, b->BN, b->BB, b->BR, b->all, b->allW, b->allB, b->enpassant);
+                    vector<int> res = legal_move(mv, b);
                     if (res[0] == 1) {
                         if (res[1] == 0) {
                             mv.check = 0;
@@ -1330,7 +867,7 @@ class Board {
                 }
             }
 
-            ll in_attack = Board::white_attacks(b->WP, b->WK, b->WQ, b->WB, b->WN, b->WR, b->all, b->allB, b->enpassant);
+            ll in_attack = Board::white_attacks(b);
 
             if ((in_attack & (G_FILE & EIGHT_RANK)) == 0 &&
                 (in_attack & (F_FILE & EIGHT_RANK)) == 0 &&
@@ -1354,8 +891,8 @@ class Board {
                         mv.white = false;
 
                         mv.captures = ' ';
-                        mv.enpassant = 0;
-                        vector<int> res = legal_move(mv, b->WP, b->WK, b->WQ, b->WB, b->WN, b->WR, b->BP, b->BQ, b->BK, b->BN, b->BB, b->BR, b->all, b->allW, b->allB, b->enpassant);
+                        
+                        vector<int> res = legal_move(mv, b);
                         
                         if (res[1] == 0) {
                             mv.check = 0;
@@ -1389,9 +926,8 @@ class Board {
                         mv.white = false;
 
                         mv.captures = ' ';
-                        mv.enpassant = 0;
                         
-                        vector<int> res = legal_move(mv, b->WP, b->WK, b->WQ, b->WB, b->WN, b->WR, b->BP, b->BQ, b->BK, b->BN, b->BB, b->BR, b->all, b->allW, b->allB, b->enpassant);
+                        vector<int> res = legal_move(mv, b);
                         
                         if (res[1] == 0) {
                             mv.check = 0;
@@ -1436,128 +972,7 @@ class Board {
         }
     }
 
-    static vector<int> legal_move(Move move, ll WP, ll WK, ll WQ, ll WB, ll WN, ll WR, ll BP, ll BQ, ll BK, ll BN, ll BB, ll BR, ll all, ll allW, ll allB, ll enpassant) {
-        vector<int> res;
-        if (move.white) {
-            ll dest = coordsBack[move.destination];
-
-            if (dest & BN) {
-                BN ^= coordsBack[move.destination];
-                allB ^= coordsBack[move.destination];
-            }
-            if (dest & BB) {
-                BB ^= coordsBack[move.destination];
-                allB ^= coordsBack[move.destination];
-            }
-            if (dest & BQ) {
-                BQ ^= coordsBack[move.destination];
-                allB ^= coordsBack[move.destination];
-            }
-            if (dest & BP) {
-                BP ^= coordsBack[move.destination];
-                allB ^= coordsBack[move.destination];
-            }
-            if (dest & BR) {
-                BR ^= coordsBack[move.destination];
-                allB ^= coordsBack[move.destination];
-            }
-
-            allW ^= (coordsBack[move.location] | coordsBack[move.destination]);
-            all ^= (coordsBack[move.location] | coordsBack[move.destination]);
-
-
-            if (move.piece == 'K') {
-                WK ^= (coordsBack[move.location] | coordsBack[move.destination]);
-            } else if (move.piece == 'Q'){
-                WQ ^= (coordsBack[move.location] | coordsBack[move.destination]);
-            }else if (move.piece == 'R'){
-                WR ^= (coordsBack[move.location] | coordsBack[move.destination]);
-            }else if (move.piece == 'B'){
-                WB ^= (coordsBack[move.location] | coordsBack[move.destination]);
-            }else if (move.piece == 'N'){
-                WN ^= (coordsBack[move.location] | coordsBack[move.destination]);
-            }else if (move.piece == 'P'){
-                WP ^= (coordsBack[move.location] | coordsBack[move.destination]);
-            }
-
-            ll b_attacks = black_attacks(BP, BQ, BK, BN, BB, BR, all, allW, enpassant);
-            ll w_attacks = white_attacks(WP, WK, WQ, WB, WN, WR, all, allB, enpassant);
-
-            if ((WK & b_attacks) != 0) {
-                res.push_back(0);
-            } else {
-                res.push_back(1);
-            }
-
-            if (BK & w_attacks) {
-                res.push_back(1);
-            } else {
-                res.push_back(0);
-            }
-
-        } else {
-            ll dest = coordsBack[move.destination];
-            if ((dest & WN)) {
-                WN ^= coordsBack[move.destination];
-                allW ^= coordsBack[move.destination];
-            }
-            if (dest & WB) {
-                WB ^= coordsBack[move.destination];
-                allW ^= coordsBack[move.destination];
-            }
-            if (dest & WQ) {
-                WQ ^= coordsBack[move.destination];
-                allW ^= coordsBack[move.destination];
-            }
-            if (dest & WP) {
-                WP ^= coordsBack[move.destination];
-                allW ^= coordsBack[move.destination];
-            }
-            if (dest & WR) {
-                WR ^= coordsBack[move.destination];
-                allW ^= coordsBack[move.destination];
-            }
-
-            allB ^= (coordsBack[move.location] | coordsBack[move.destination]);
-            all ^= (coordsBack[move.location] | coordsBack[move.destination]);
-
-            if (move.piece == 'k') {
-                BK ^= (coordsBack[move.location] | coordsBack[move.destination]);
-            } else if (move.piece == 'q'){
-                BQ ^= (coordsBack[move.location] | coordsBack[move.destination]);
-            }else if (move.piece == 'r'){
-                BR ^= (coordsBack[move.location] | coordsBack[move.destination]);
-            }else if (move.piece == 'b'){
-                BB ^= (coordsBack[move.location] | coordsBack[move.destination]);
-            }else if (move.piece == 'n'){
-                BN ^= (coordsBack[move.location] | coordsBack[move.destination]);
-            }else if (move.piece == 'p'){
-                BP ^= (coordsBack[move.location] | coordsBack[move.destination]);
-            }
-
-            ll b_attacks = black_attacks(BP, BQ, BK, BN, BB, BR, all, allW, enpassant);
-            ll w_attacks = white_attacks(WP, WK, WQ, WB, WN, WR, all, allB, enpassant);
-
-            if ((BK & w_attacks) != 0) {
-                res.push_back(0);
-            } else {
-                res.push_back(1);
-            }
-
-
-            if (WK & b_attacks) {
-                res.push_back(1);
-            } else {
-                res.push_back(0);
-            }
-
-
-        }
-        return res;
-    }
-
     static void make_move(Board *b, Move move) {
-
         if (b->turn) {
             if (move.shortcastle) {
                 b->WK >>= 2;
@@ -1577,28 +992,23 @@ class Board {
 
                 if (dest & b->allB) {
                     if (dest & b->BN) {
-                        b->BN &= ~coordsBack[move.destination];
+                        b->BN ^= dest;
                     } else if (dest & b->BB) {
-                        b->BB &= ~coordsBack[move.destination];
+                        b->BB ^= dest;
                     } else if (dest & b->BQ) {
-                        b->BQ &= ~coordsBack[move.destination];
+                        b->BQ ^= dest;
                     } else if (dest & b->BP) {
-                        b->BP &= ~coordsBack[move.destination];
+                        b->BP ^= dest;
                     } else if (dest & b->BR) {
-                        b->BR &= ~coordsBack[move.destination];
+                        b->BR ^= dest;
                     }
                 }
                 
                 if (loc & b->WK) {
-                    b->WK &= ~loc;
-                    b->WK |= dest;
+                    b->WK ^= (loc | dest);
                 } else if (loc & b->WP) {
-                    b->WP &= ~loc;
-                    if ((dest >> 16) == loc) {
-                        b->enpassant = dest;
-                        b->WP |= dest;
-                    } else if (dest & EIGHT_RANK) {
-                        b->enpassant = 0;
+                    b-> WP ^= loc;
+                    if (dest & EIGHT_RANK) {
                         if (move.promotion == 'q') {
                             b->WQ |= dest;
                         } else if (move.promotion == 'r') {
@@ -1609,43 +1019,22 @@ class Board {
                             b->WN |= dest;
                         }
                     } else {
-                        if (b->enpassant) {
-
-                            if (((dest & (loc << 7)) || (dest & (loc << 9))) && (dest & b->BP) == 0) {
-                                if (loc & FIVE_RANK) {
-                                    b->BP &= ~(dest >> 8);
-                                }
-                            }
-
-                        }
-                        
                         b->WP |= dest;
-                        b->enpassant = 0;
-                        
                     }
                 } else if (loc & b->WR) {
-                    b->WR &= ~loc;
-                    b->WR |= dest;
-                    b->enpassant = 0;
+                    b->WR ^= (loc | dest);
                 } else if (loc & b->WN) {
-                    b->WN &= ~loc;
-                    b->WN |= dest;
-                    b->enpassant = 0;
+                    b->WN ^= (loc | dest);
                 } else if (loc & b->WB) {
-                    b->WB &= ~loc;
-                    b->WB |= dest;
-                    b->enpassant = 0;
+                    b->WB ^= (loc | dest);
                 } else if (loc & b->WQ) {
-                    b->WQ &= ~loc;
-                    b->WQ |= dest;
-                    b->enpassant = 0;
+                    b->WQ ^= (loc | dest);
                 }
             }
         } else {
             if (move.shortcastle) {
                 b->BK >>= 2;
-                b->BR -= (EIGHT_RANK & H_FILE);
-                b->BR += (EIGHT_RANK & F_FILE);
+                b->BR ^= (EIGHT_RANK & H_FILE) | (EIGHT_RANK & F_FILE);
                 b->nevermoved &= ~(H_FILE & EIGHT_RANK);
                 b->nevermoved &= ~(F_FILE & EIGHT_RANK);
             } else if (move.longcastle) {
@@ -1659,31 +1048,25 @@ class Board {
                 ll dest = coordsBack[move.destination];
                 ll loc = coordsBack[move.location];
 
-                if ((dest & b->allW)) {
+                if (dest & b->allW) {
                     if ((dest & b->WN)) {
-                        b->WN &= ~coordsBack[move.destination];
+                        b->WN &= ~dest;
                     } else if (dest & b->WB) {
-                        b->WB &= ~coordsBack[move.destination];
+                        b->WB ^= dest;
                     } else if (dest & b->WQ) {
-                        b->WQ &= ~coordsBack[move.destination];
+                        b->WQ ^= dest;
                     } else if (dest & b->WP) {
-                        b->WP &= ~coordsBack[move.destination];
+                        b->WP ^= dest;
                     } else if (dest & b->WR) {
-                        b->WR &= ~coordsBack[move.destination];
+                        b->WR ^= dest;
                     }
-                    b->enpassant = 0;
                 }
                 
                 if (loc & b->BK) {
-                    b->BK &= ~loc;
-                    b->BK |= dest;
+                    b->BK ^= (loc | dest);
                 } else if (loc & b->BP) {
-                    b->BP &= ~loc;
-                    if ((dest << 16) == loc) {
-                        b->enpassant = dest;
-                        b->BP |= dest;
-                    } else if (dest & FIRST_RANK) {
-                        b->enpassant = 0;
+                    b->BP ^= loc;
+                    if (dest & FIRST_RANK) {
                         if (move.promotion == 'q') {
                             b->BQ |= dest;
                         } else if (move.promotion == 'r') {
@@ -1694,40 +1077,23 @@ class Board {
                             b->BN |= dest;
                         }
                     } else {
-                        if (b->enpassant) {
-                            if (((dest & (loc >> 7)) || (dest & (loc >> 9))) && (dest & b->WP) == 0) {
-                                if (loc & FOUR_RANK) {
-                                    b->WP &= ~(dest << 8);
-                                }
-                            }
-                        }
-                        
                         b->BP |= dest;
-                        b->enpassant = 0;
                     }
                 } else if (loc & b->BR) {
-                    b->BR &= ~loc;
-                    b->BR |= dest;
-                    b->enpassant = 0;
+                    b->BR ^= (loc | dest);
                 } else if (loc & b->BN) {
-                    b->BN &= ~loc;
-                    b->BN |= dest;
-                    b->enpassant = 0;
+                    b->BN ^= (loc | dest);
                 } else if (loc & b->BB) {
-                    b->BB &= ~loc;
-                    b->BB |= dest;
-                    b->enpassant = 0;
+                    b->BB ^= (loc | dest);
                 } else if (loc & b->BQ) {
-                    b->BQ &= ~loc;
-                    b->BQ |= dest;
-                    b->enpassant = 0;
+                    b->BQ ^= (loc | dest);
                 }
             }
         }
 
         b->allW = b->WK | b->WQ | b->WP | b->WN | b->WR | b->WB;
         b->allB = b->BK | b->BQ | b->BP | b->BN | b->BR | b->BB;
-        b->all = b->allW | b->allB;
+        b->all  = b->allW | b->allB;
         b->turn = !b->turn;
 
         b->nevermoved = (b->nevermoved & ~(coordsBack[move.location] | coordsBack[move.destination]));
@@ -1746,34 +1112,23 @@ class Board {
                 b->WK >>= 2;
                 b->WR ^= ((D_FILE & FIRST_RANK) | (A_FILE & FIRST_RANK));
                 b->nevermoved |= (b->WK | (b->WR & (A_FILE & FIRST_RANK)));
-            } else if (move.enpassant) {
-                // cout << "Looking at BP in undo move";
-                // BitManipulation::printBitboard(b->BP);
-                // BitManipulation::printBitboard(b->enpassant);
-                b->BP ^= (destination >> 8);
-                b->WP ^= (destination | location);
-                b->enpassant = destination >> 8;
-                // cout << "Looking at BP coming out of undo move";
-                // BitManipulation::printBitboard(b->BP);
             } else {
                 if (move.promotion == 'q') {
                     b->WQ ^= destination;
-                    b->WP |= destination;
+                    b->WP |= location;
                 } else if (move.promotion == 'r') {
                     b->WR ^= destination;
-                    b->WP |= destination;
+                    b->WP |= location;
                 } else if (move.promotion == 'b') {
                     b->WB ^= destination;
-                    b->WP |= destination;
+                    b->WP |= location;
                 } else if (move.promotion == 'n') {
                     b->WN ^= destination;
-                    b->WP |= destination;
+                    b->WP |= location;
                 }
-                if (move.piece == 'P') {
+
+                if (move.piece == 'P' && move.promotion == ' ') {
                     b->WP ^= (destination | location);
-                    if ((location << 16) == destination) {
-                        b->enpassant = 0;
-                    }
                 } else if (move.piece == 'R') {
                     b->WR ^= (destination | location);
                 } else if (move.piece == 'Q') {
@@ -1788,15 +1143,17 @@ class Board {
 
                 if (move.captures != ' ') {
                     if (move.captures == 'p') {
-                        b->BP ^= (destination);
+                        b->BP ^= destination;
                     } else if (move.captures == 'r') {
-                        b->BR ^= (destination);
+                        b->BR ^= destination;
                     } else if (move.captures == 'q') {
-                        b->BQ ^= (destination);
+                        b->BQ ^= destination;
                     } else if (move.captures == 'b') {
-                        b->BB ^= (destination);
+                        b->BB ^= destination;
                     } else if (move.captures == 'n') {
-                        b->BN ^= (destination);
+                        b->BN ^= destination;
+                    } else if (move.captures == 'k') {
+                        b->BK ^= destination;
                     }
                 }
             }
@@ -1809,29 +1166,23 @@ class Board {
                 b->BK >>= 2;
                 b->BR ^= ((D_FILE & EIGHT_RANK) | (A_FILE & EIGHT_RANK));
                 b->nevermoved |= (b->BK | (b->BR & (A_FILE & EIGHT_RANK)));
-            } else if (move.enpassant) {
-                b->WP ^= (destination << 8);
-                b->BP ^= (destination | location);
-                b->enpassant = destination << 8;
             } else {
                 if (move.promotion == 'q') {
                     b->BQ ^= destination;
-                    b->BP |= destination;
+                    b->BP |= location;
                 } else if (move.promotion == 'r') {
                     b->BR ^= destination;
-                    b->BP |= destination;
+                    b->BP |= location;
                 } else if (move.promotion == 'b') {
                     b->BB ^= destination;
-                    b->BP |= destination;
+                    b->BP |= location;
                 } else if (move.promotion == 'n') {
                     b->BN ^= destination;
-                    b->BP |= destination;
+                    b->BP |= location;
                 }
-                if (move.piece == 'p') {
+
+                if (move.piece == 'p' && move.promotion == ' ') {
                     b->BP ^= (destination | location);
-                    if ((location >> 16) == destination) {
-                        b->enpassant = 0;
-                    }
                 } else if (move.piece == 'r') {
                     b->BR ^= (destination | location);
                 } else if (move.piece == 'q') {
@@ -1855,15 +1206,43 @@ class Board {
                         b->WB ^= (destination);
                     } else if (move.captures == 'N') {
                         b->WN ^= (destination);
+                    } else if (move.captures == 'K') {
+                        b->WK ^= destination;
                     }
                 }
             }
+            
         }
         b->nevermoved |= (destination | location);
         b->allW = b->WK | b->WQ | b->WP | b->WN | b->WR | b->WB;
         b->allB = b->BK | b->BQ | b->BP | b->BN | b->BR | b->BB;
         b->all = b->allW | b->allB;
         b->turn = !b->turn;
+
+    }
+
+    static vector<int> legal_move(Move move, Board *b) {
+        vector<int> res;
+
+        Board::make_move(b, move);
+
+        ll b_attacks = black_attacks(b);
+        ll w_attacks = white_attacks(b);
+
+        if (((b->WK & b_attacks) && !b->turn) || ((b->BK &w_attacks) && b->turn)) {
+            res.push_back(0);
+        } else {
+            res.push_back(1);
+        }
+
+        if (((b->WK & b_attacks) && b->turn) || ((b->BK & w_attacks) && !b->turn)) {
+            res.push_back(1);
+        } else {
+            res.push_back(0);
+        }
+        
+        Board::undo_move(b, move);
+        return res;
     }
 
     static Move read_in_move(Board *b, string move) {
@@ -1903,6 +1282,7 @@ class Board {
             m.shortcastle = false;
             m.longcastle = true;
             m.white = b->turn;
+            
             Board::make_move(b, m);
         } else {
             m.location = move.substr(0, 2);
@@ -1922,48 +1302,3 @@ class Board {
     }
     
 };
-
-
-// int main() {
-//     char board[8][8] =
-//         {
-//             {'r', 'n', ' ', ' ', 'k', ' ', ' ', ' '},
-//             {' ', ' ', ' ', ' ', 'p', 'p', ' ', ' '},
-//             {' ', ' ', ' ', ' ', ' ', ' ', ' ', ' '},
-//             {' ', ' ', ' ', ' ', ' ', ' ', ' ', ' '},
-//             {' ', ' ', 'p', 'p', 'p', ' ', 'p', ' '},
-//             {' ', ' ', ' ', ' ', ' ', ' ', ' ', ' '},
-//             {'P', 'P', ' ', ' ', ' ', 'P', ' ', 'P'},
-//             {' ', ' ', ' ', ' ', 'K', ' ', ' ', ' '},
-//         };
-
-//     Board b = Board(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0);
-    
-//     b.read_in_char_board(board, 1);
-//     Board::print_char_board(b);
-
-//     vector<Move> moves = Board::move_gen1( &b );
-
-//     string move;
-//     cin>>move;
-
-//     Board::read_in_move(&b, move);
-    
-//     Board::print_char_board(b);
-
-//     moves = Board::move_gen1(&b);
-
-//     for (int i = 0;i < moves.size(); i++) {
-//         cout << moves[i].location << moves[i].destination << moves[i].enpassant << endl;
-//     }
-
-//     Board::make_move(&b, moves[0]);
-
-//     Board::print_char_board(b);
-
-
-//     Board::undo_move(&b, moves[0]);
-
-//     Board::print_char_board(b);
-
-// }

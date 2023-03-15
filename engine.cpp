@@ -1,4 +1,4 @@
-#include "mg2.cpp"
+#include "board.cpp"
 
 using namespace std;
 
@@ -55,14 +55,14 @@ class Heuristic {
         vector<Move> moos = Board::move_gen1(board);
         if (moos.size() == 0) {
             if (board->turn == 1) {
-                ll attacks = Board::black_attacks(board->BP, board->BK, board->BQ, board->BB, board->BN, board->BR, board->all, board->allW, board->enpassant);
+                ll attacks = Board::black_attacks(board);
                 if (board->WK & attacks) {
                     return INT_MAX;
                 } else {
                     return 1;
                 }
             } else {
-                ll attacks = Board::white_attacks(board->WP, board->WK, board->WQ, board->WB, board->WN, board->WR, board->all, board->allB, board->enpassant);
+                ll attacks = Board::white_attacks(board);
                 if (board->BK & attacks) {
                     return -INT_MAX;
                 } else {
@@ -74,8 +74,8 @@ class Heuristic {
         }
     }
     static int control(Board *board) {
-        ll b_attacks = Board::black_attacks(board->BP, board->BQ, board->BK, board->BN, board->BB, board->BR, board->all, board->allW, board->enpassant);
-        ll w_attacks = Board::white_attacks(board->WP, board->WK, board->WQ, board->WB, board->WN, board->WR, board->all, board->allB, board->enpassant);
+        ll b_attacks = Board::black_attacks(board);
+        ll w_attacks = Board::white_attacks(board);
         
         int w = 0;
         int b = 0;
@@ -84,6 +84,7 @@ class Heuristic {
             BitManipulation::pop_LSB(&b_attacks);
             b -= 10;
         }
+
         while(w_attacks) {
             BitManipulation::pop_LSB(&w_attacks);
             w += 10;
@@ -131,7 +132,6 @@ class Engine {
     }
 
     static int minimax(Board *board, int alpha = -INT_MAX, int beta = INT_MAX, int depth = 0, int big_depth = 0) {
-        node_count++;
         if (depth == MAX_ENGINE_DEPTH || big_depth == MAX_ENGINE_DEPTH_FINAL) {
             return evaluate_board(board);
         }
@@ -155,7 +155,7 @@ class Engine {
 
                 maximum = max(score, maximum);
 
-                if (maximum > beta || score > 5) {
+                if (maximum > beta || maximum > 10) {
                     break;
                 }
 
@@ -180,7 +180,7 @@ class Engine {
                 Board::undo_move(board, moos[i]);
 
                 minimum = min(score, minimum);
-                if (minimum < alpha || score < -5) {
+                if (minimum < alpha || minimum < -10) {
                     break;
                 }
             }
@@ -193,39 +193,3 @@ class Engine {
         return Heuristic::checkmate(board) + Heuristic::control(board) + Heuristic::material(board);
     }
 };
-
-
-
-
-// int main() {
-//     char board[8][8] =
-//         {
-//             {' ', ' ', ' ', ' ', 'k', ' ', ' ', ' '},
-//             {' ', ' ', ' ', ' ', ' ', ' ', ' ', ' '},
-//             {' ', ' ', ' ', ' ', ' ', ' ', ' ', ' '},
-//             {' ', ' ', ' ', ' ', ' ', ' ', ' ', ' '},
-//             {' ', ' ', ' ', ' ', ' ', ' ', ' ', ' '},
-//             {' ', ' ', ' ', ' ', ' ', ' ', ' ', ' '},
-//             {' ', ' ', ' ', ' ', ' ', ' ', ' ', ' '},
-//             {' ', ' ', ' ', ' ', ' ', 'K', ' ', ' '},
-//         };
-
-//     Board b = Board(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0);
-    
-//     b.read_in_char_board(board, 0);
-//     Board::print_char_board(b);
-
-//     Move best = Engine::find_move(&b);
-
-//     Board::make_move(&b, best);
-
-//     Board::print_char_board(b);
-
-//     vector<Move> ms = Board::move_gen1(&b);
-
-//     Board::undo_move(&b, best);
-    
-//     Board::print_char_board(b);
-
-    
-// }

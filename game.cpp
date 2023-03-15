@@ -1,9 +1,10 @@
-#include "m2.cpp"
+#include "engine.cpp"
 
 class Play {
     public:
 
     static void play_on_console() {
+
         char board[8][8] =
         {
             {'r', 'n', 'b', 'q', 'k', 'b', 'n', 'r'},
@@ -16,7 +17,19 @@ class Play {
             {'R', 'N', 'B', 'Q', 'K', 'B', 'N', 'R'},
         };
 
-        Board b = Board(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0);
+        // char board[8][8] =
+        // {
+        //     {' ', ' ', ' ', ' ', 'k', ' ', ' ', ' '},
+        //     {' ', ' ', ' ', ' ', ' ', ' ', ' ', ' '},
+        //     {'b', ' ', ' ', ' ', ' ', ' ', ' ', ' '},
+        //     {' ', 'p', ' ', ' ', ' ', ' ', ' ', ' '},
+        //     {' ', ' ', 'p', ' ', ' ', ' ', ' ', ' '},
+        //     {' ', ' ', ' ', ' ', ' ', ' ', ' ', ' '},
+        //     {' ', ' ', ' ', ' ', 'Q', ' ', ' ', ' '},
+        //     {' ', ' ', ' ', ' ', 'K', ' ', ' ', ' '},
+        // };
+
+        Board b = Board(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0);
         
         b.read_in_char_board(board, 1);
 
@@ -29,7 +42,7 @@ class Play {
             fputs("\x1b[2J", stdout);
             fputs("\x1b[2H", stdout);
             Board::print_char_board(b);
-            cout << "Positions Searched: " << node_count << endl;
+
             if (i%2 == 0) {
                 string move = "";
                 cin >> move;
@@ -57,10 +70,5 @@ class Play {
 
 
 
-int main() {
-    
-    Play::play_on_console();
-    
-    return 0;
-}
+
 
