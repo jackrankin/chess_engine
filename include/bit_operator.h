@@ -1,9 +1,12 @@
+#ifndef BIT_OPERATOR_H
+#define BIT_OPERATOR_H
+
 #include "globals.h"
 
 using namespace std;
 
 class BitManipulation {
-   public:
+public:
     static ll reverse_bits(ll bits) {
 
         ll m2 = 0xFFFF0000FFFF0000;
@@ -95,4 +98,8 @@ class BitManipulation {
         }
         cout << endl;
     }
+
 };
+
+
+#endif

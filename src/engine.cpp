@@ -1,9 +1,9 @@
-#include "board.cpp"
+#include "../include/engine.h"
 
 using namespace std;
 
 class Heuristic {
-   public:
+public:
     static int material(Board *board) {
         
         Board fake = *board;

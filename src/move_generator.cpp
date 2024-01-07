@@ -1,9 +1,9 @@
-#include "bit_operator.cpp"
+#include "../include/move_generator.h"
 
 using namespace std;
 
 class moveGeneration {
-   public:
+public:
     static ll white_pawn_moves(ll pawns, ll occupied, ll black) {
         ll moves = ((pawns << 8) & ~occupied);
         moves |= (((((pawns & TWO_RANK) << 8) & ~occupied) << 8) & ~occupied);

@@ -1,8 +1,12 @@
-#include "engine.cpp"
+#ifndef GAME_H
+#define GAME_H
+
+#include "engine.h"
+
+using namespace std;
 
 class Play {
-    public:
-
+public:
     static void play_on_console() {
 
         char board[8][8] =
@@ -17,6 +21,8 @@ class Play {
             {'R', 'N', 'B', 'Q', 'K', 'B', 'N', 'R'},
         };
 
+        // YOU CAN SET UP CUSTOMM POSITIONS LIKE THIS
+        //
         // char board[8][8] =
         // {
         //     {' ', ' ', ' ', ' ', 'k', ' ', ' ', ' '},
@@ -30,15 +36,15 @@ class Play {
         // };
 
         Board b = Board(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0);
-        
+
         b.read_in_char_board(board, 1);
 
         cout << "Enter moves like this: e2e4, e1g1, e7e8Q" << endl;
         cout << "Hit enter to continue..." << endl;
         cin.get();
-        
+
         for(int i = 0;; i++) {
-            
+
             fputs("\x1b[2J", stdout);
             fputs("\x1b[2H", stdout);
             Board::print_char_board(b);
@@ -48,7 +54,7 @@ class Play {
                 cin >> move;
                 Board::read_in_move(&b, move);
                 vector<Move> ms = Board::move_gen1(&b);
-                
+
                 if (ms.size() == 0) {
                     Board::print_char_board(b);
                     cout << "u won!! or maybe u stalemated, i'm honestly not sure i'm pretty stupid";
@@ -68,7 +74,4 @@ class Play {
     }
 };
 
-
-
-
-
+#endif

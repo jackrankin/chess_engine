@@ -1,9 +1,9 @@
-#include "move_generator.cpp"
+#include "../include/board.h"
 
 using namespace std;
 
 class Board {
-   public:
+public:
     int turn;
 
     map<ll, string> squareMap;
