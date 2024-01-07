@@ -5,9 +5,9 @@ RUNNING THE PROGRAM:
 
 1. clone the repo
 
-2. compile using: "g++ main.cpp"
+2. compile using: "cmake ." followed my "make"
 
-3. run using ./a.out
+3. run using ./my_program
 
 4. enter moves using Universal Chess Interfacing protocal. e.g. e2e4 or f7f8Q
 
