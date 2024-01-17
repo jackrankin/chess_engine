@@ -12,4 +12,6 @@ RUNNING THE PROGRAM:
 4. enter moves using Universal Chess Interfacing protocal. e.g. e2e4 or f7f8Q
 
 
+I rendered the board in the terminal for people to see:
+
 https://github.com/jackrankin/chess_engine/assets/97968661/9da67631-58c3-48b7-bcd4-375856b7088c
