@@ -7,7 +7,7 @@ RUNNING THE PROGRAM:
 
 2. compile using: "cmake ." followed my "make"
 
-3. run using ./my_program
+3. run using ./run (the video is old, i wasn't using make yet)
 
 4. enter moves using Universal Chess Interfacing protocal. e.g. e2e4 or f7f8Q
 
