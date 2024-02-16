@@ -1,5 +1,5 @@
 # chess_engine
-c++ engine that uses hyperbola quintessence for move generation and a minimax algorithm for move selection
+c++ engine that uses hyperbola quintessence for move generation and minimax for move selection
 
 RUNNING THE PROGRAM:
 
